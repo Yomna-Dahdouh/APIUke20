@@ -1,9 +1,14 @@
-
+// ------------------ Henter HTML-elementer ------------------ //
 const mybtn = document.getElementById('myList');
 const tre = document.getElementById('btn');
-tre.addEventListener("click", openmenu );
+const searchbar = document.getElementById('searchbar');
+
+// ------------------ Legger til klikklytter ------------------ //
+tre.addEventListener("click", openmenu);
+
+// ------------------ Definerer openmenu ------------------ //
 function openmenu() {
-    if(mybtn.style.display != 'block') {
+    if (mybtn.style.display != 'block') {
         mybtn.style.display = 'block';
     } else {
         mybtn.style.display = 'none';
@@ -11,26 +16,67 @@ function openmenu() {
     console.log('clicked');
 }
 
-// map settings
-const attribution = '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+// ------------------ Kartinnstillinger ------------------ //
+const attribution = '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>';
 
-var map = L.map('map1').setView([59.745164250056135, 10.164131070531106], 15);
-let marker = L.marker([59.745164250056135,10.164131070531106 ]).addTo(map)
-let tileURL =   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { }).addTo(map);
-const tiles =L.tileLayer(tileURL,{attribution})
-let place = document.getElementById("searchbar").value;
-const api_url = 'https://nominatim.openstreetmap.org/search?format=json&q=' + place; 
-console.log(place);
+// ------------------ Oppretter kart ------------------ //
+var map = L.map('map1').setView([37.7749, -122.4194], 5); // Sentrerer på USA
 
+// ------------------ Legger til kartfliser ------------------ //
+const tileURL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+L.tileLayer(tileURL, { attribution }).addTo(map);
 
-async function show_me(){
-
+// ------------------ Definerer showBreweries ------------------ //
+async function showBreweries(state) {
+    // ------------------ API-kall for bryggeridata ------------------ //
+    const api_url = `https://api.openbrewerydb.org/breweries?by_state=${state}`;
     let response = await fetch(api_url);
-    //let response = await fetch('https://api.openbrewerydb.org/breweries');
     let data = await response.json();
+    
+    // ------------------ Logger data ------------------ //
     console.log(data);
-    data.forEach(element => {
-        let marker = L.marker([element.lat, element.lon]).addTo(map);
-        marker.bindPopup(`<b>${element.name}</b><br>${element.lat}  ${element.lon}`).openPopup();
+    
+    // ------------------ Fjerner markører ------------------ //
+    map.eachLayer(function (layer) {
+        if (layer instanceof L.Marker) {
+            map.removeLayer(layer);
+        }
+    });
+    
+    // ------------------ Legger til nye markører ------------------ //
+    data.forEach(brewery => {
+        // Sjekker om bryggeriet har både breddegrad og lengdegrad
+        if (brewery.latitude && brewery.longitude) {
+            // Konverterer breddegrad og lengdegrad til flyttall for nøyaktighet
+            const latitude = parseFloat(brewery.latitude);
+            const longitude = parseFloat(brewery.longitude);
+            
+            // Oppretter en ny markør på kartet ved de gitte koordinatene
+            const marker = L.marker([latitude, longitude]).addTo(map);
+            
+            // Definerer innholdet som skal vises i popup-vinduet for markøren
+            const popupContent = `
+                <b>${brewery.name}</b><br>           <!-- Bryggeriets navn i fet skrift -->
+                ${brewery.street}<br>                <!-- Gateadressen til bryggeriet -->
+                ${brewery.city}, ${brewery.state} ${brewery.postal_code}<br> <!-- By, delstat og postnummer -->
+                <a href="${brewery.website_url}" target="_blank">${brewery.website_url}</a> <!-- Lenke til bryggeriets nettside -->
+            `;
+            
+            // Binder popup-innholdet til markøren slik at det vises når markøren klikkes
+            marker.bindPopup(popupContent);
+        }
     });
 }
+
+// ------------------ Definerer show_me ------------------ //
+function show_me() {
+    const state = searchbar.value;
+    showBreweries(state);
+}
+
+// ------------------ Legger til tastetrykklytter ------------------ //
+searchbar.addEventListener('keypress', function (e) {
+    if (e.key === 'Enter') {
+        show_me();
+    }
+});
